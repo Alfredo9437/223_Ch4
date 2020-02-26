@@ -117,12 +117,12 @@ void Math(char * s){
 
 void Var(char * s){
     if(strspn(s,"=")){
-        double temp = variables[s[2]-'A'] = pop();
+        double temp = variables[s[1]-'A'] = pop();
         push(temp);
         
     }else if(strspn(s,"?")){
-        push(variables[s[2]-'A']);
-        printf("\t%.2f\n",variables[s[2]-'A']);
+        push(variables[s[1]-'A']);
+        printf("\t%.2f\n",variables[s[1]-'A']);
     }
 }
 
