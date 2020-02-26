@@ -1,169 +1,89 @@
+//
+//  main.c
+//  rpn
+//
+//  Created by William McCarthy on 192//20.
+//  Copyright © 2020 William McCarthy. All rights reserved.
+//  Alfredo Rodriguez - Garcia 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <math.h>
+#include <string.h>
 
-#define MAXOP 100
-#define NUMBER '0'
+#define MAXOP   100    /* max size of operand/operator */
+#define NUMBER '0'     /* signal that a number was found */
+#define MATH '1'
+#define VARIABLE '2'
+#define STACK '3'
+#define MAXVAL  100
 
-int getop (char []);
-void push (double);
-double pop(void);
-void top(void);
-void swap(void);
-void clear(void);
-void dup(void);
-void pow_op(void);
+double variables[26];
 
-int main(){
-    int type;
-    double op2;
-    char s[MAXOP];
-    int temp1;
-    int temp2;
-    double tempmod;
-    double e_const = 2.71828;
+size_t sp = 0;   // aka unsigned long -- printf using %zu
+double val[MAXVAL];   // stack of values
 
-    while((type = getop(s)) != EOF) {
-        switch(type){
-            case NUMBER:
-                push(atof(s));
-                break;
-            case '+':
-                push(pop() + pop());
-                break;
-            case '*':
-                push(pop() * pop());
-                break;
-            case '-':
-                op2 = pop();
-                push(pop() - op2);
-                break;
-            case '/':
-                op2 = pop();
-                if(op2 != 0.0)
-                    push(pop() / op2);
-                else
-                    printf("error: zero divisor\n");
-                break;
-                //4.3
-            case '%':
-                temp1 = pop();
-                temp2 = pop();
-                tempmod = temp2 % temp1;
-                push(tempmod);
-                break;
-                //4.4
-            case '?':
-                top();
-                break;                
-            
-            case '$':
-                printf("Swapping the top two values...\n");
-                printf("Here are your values now: ");
-                swap();
-                break;
-            
-            case '&':
-                printf("Duplicating the top of your stack...\n");
-                dup();
-                break;
-            
-            case '!':
-                printf("Now clearing the stack...\n");
-                clear();
-                printf("Your stack is now cleared.\n");
-                break;
-                //4.5
-            case 's':
-                push(sin(pop()));
-                break;
+char buf[BUFSIZ];
+size_t bufp = 0;
 
-            case 'p':
-                pow_op();
-                break;
-
-            case 'e':
-                push(pow(e_const, pop()));
-                break;
-
-            case '\n':
-                printf("\t%.8g\n", pop());
-                break;
-            default:
-                printf("error: unkown command %s\n" ,s);
-                break;
-            }
-                
-        }
-        return 0;
+int getch_(void) { return (bufp > 0) ? buf[--bufp] : getchar(); }
+void ungetch_(int c) {
+  if (bufp >= BUFSIZ) { fprintf(stderr, "ungetch: too many characters\n");  return; }
+  buf[bufp++] = c;
 }
 
-#define BUFSIZE 100
-char buf[BUFSIZE];
-char bufp  = 0;
 
-int getch(void){
-    return (bufp > 0) ? buf[--bufp]:getchar();
-}
-void ungetch(int c){
-    if(bufp >= BUFSIZE){
-        printf("ungetch: too many characters\n");
-    }else{
-        buf[bufp++] = c;
-    }
+double pop(void) {
+  if (sp == 0) { fprintf(stderr, "stack underflow\n");  return 0.0; }
+  return val[--sp];
 }
 
-#define MAXVAL 100
-int sp = 0;
-double val[MAXVAL];
-
-void push(double f){
-    if (sp < MAXVAL){
-        val[sp++]=f;
-    }else{
-        printf("error: stack full, cant push %g\n", f);
+int getop(char* s) {
+  int i, c;
+  while ((s[0] = c = getch_()) == ' ' || c == '\t') { }  // skip whitespace
+  s[1] = '\0';
+  
+  if(isalpha(c)){
+        i = 0;
+        s[i++] = c;
+        while(isalpha(s[i++] = c = getch_()))
+        s[i] = '\0';
+        return MATH;
     }
+
+    if(c == '=' || c == '?'){
+        i=0;
+        s[i++] = c;
+        while(isalpha(s[i++] = c = getch_()));
+        return VARIABLE;
+    }
+
+    if(c == '@'){
+        i=0;
+        s[i++] = c;
+        while(isalpha(s[i++] = c = getch_()));
+        return STACK;
+    }
+
+  if (!isdigit(c) && c != '.') { return c; }  // if not a digit, return
+
+  i = 0;
+  if (isdigit(c)) {  // get digits before '.'
+    while (isdigit(s[++i] = c = getch_())) { }
+  }
+  if (c == '.') {    // get digits after decimal (if any)
+    while (isdigit(s[++i] = c = getch_())) { }
+  }
+  s[i] = '\0';
+  if (c != EOF) { ungetch_(c); }
+  return NUMBER;      // return type is NUMBER, number stored in s
+
 }
 
-double pop(void){
-    if(sp > 0){
-        return val[--sp];
-    }else{
-        printf("error: stack empty \n");
-        return 0.0;
-    }
-}
-
-int getop(char s []){
-    int i, c;
-    while ((s[0] = c = getch()) == ' ' || c == '\t');
-    s[1] = '\0';
-    if(!isdigit(c) && c != '.'){
-        return c;
-    }
-    i = 0;
-    if(isdigit(c)){
-        while(isdigit(s[++i] = c = getch()));
-    }
-    if(c == '.'){
-        while(isdigit(s[++i] = c = getch()));
-    }
-    s[i] = '\0';
-    if(c != EOF){
-        ungetch(c);
-    }
-    return NUMBER;
-}
-
-//4.4
-void top(void){
-    if (sp > 0){
-        printf("Here is the top of your stack: %.2f\n", val[sp-1]);
-    }else{
-        printf("error: stack is empty.\n");
-    }
-    push(val[sp-1]);
+void push(double f) {
+  if (sp == MAXVAL) { fprintf(stderr, "stack overflow -- can't push %g\n", f);  return; }
+  val[sp++] = f;
 }
 
 void swap(void){
@@ -178,30 +98,94 @@ void swap(void){
 
 }
 
-void clear(void){
-    for(int i = 0; i < sp; i++){
-        pop();
+void Math(char * s){
+    double op1, op2, result = 0;
+    if(strcmp(s, "sin\n") == 0){
+        result = sin(pop());
+    }else if(strcmp(s, "cos\n") == 0){
+        result = cos(pop());
+    }else if(strcmp(s, "exp\n") == 0){
+        result = exp(pop());
+    }else if(strcmp(s, "pow\n") == 0){
+        op1 = pop();
+        op2 = pop();
+        result = pow(op2, op1);
+    }
+    push(result);
+    printf("\t%.2f\n", result);
+}
+
+void Var(char * s){
+    if(strspn(s,"=")){
+        double temp = variables[s[2]-'A'] = pop();
+        push(temp);
+        
+    }else if(strspn(s,"?")){
+        push(variables[s[2]-'A']);
+        printf("\t%.2f\n",variables[s[2]-'A']);
     }
 }
 
-void dup(void){
-    if(sp > 0){
+void Stack(char*s){
+    if(strcmp(s, "@Top\n") == 0){
+        if (sp > 0){
+            printf("Here is the top of your stack: %.2f\n", val[sp-1]);
+        }else{
+            printf("error: stack is empty.\n");
+        }
         push(val[sp-1]);
-    }else{
-        printf("There are no values to duplicate.\n");
+    }else if(strcmp(s, "@Swap\n") == 0){
+        double temp;
+        if(sp > 2){
+            printf("Now swapping your values...\n");
+            temp = val[sp-1];
+            val[sp-1] = val[sp-2];
+            val[sp-2] = temp;
+        }
+        printf("%.2f, %.2f\n", val[sp-1], val[sp - 2]);
+        push(val[sp-1]);
+    }else if(strcmp(s, "@Dup\n") == 0){
+        if(sp > 0){
+            push(val[sp-1]);
+            printf("Your value has been duplicated.\n");
+        }else{
+            printf("There are no values to duplicate.\n");
+        }
+    }else if(strcmp(s, "@Clear\n") == 0){
+        for(int i = 0; i < sp; i++){
+        pop();
+        }
+        printf("Your stack is cleared...\n");
+
     }
 }
 
-//4.5
-void pow_op(void){
-    double of = pop();
-    double power = pop();
-
-    if(of == 0){
-        push(1);
-    }else if(power == 0 && of < 0){
-        printf("You cannot divide by 0.\n");
-    }else{
-        push(pow(power, of));
+void rpn(void) {
+  int type;
+  double op2;
+  char s[BUFSIZ];
+  
+  while ((type = getop(s)) != EOF) {
+    switch(type) {
+      case '\n':        printf("\t%.8g\n", pop());  break;
+      case NUMBER:      push(atof(s));              break;
+      case MATH:        Math(s);                    break;
+      case VARIABLE:    Var(s);                     break;
+      case STACK:       Stack(s);
+      case '+':         push(pop() + pop());        break;
+      case '*':         push(pop() * pop());        break;
+      case '-':         push(-(pop() - pop()));     break;
+      case '/':
+        if ((op2 = pop()) == 0.0) { fprintf(stderr, "divide by zero\n");  break; }
+        push(pop() / op2);
+        break;
+      default:      fprintf(stderr, "unknown command %s\n", s);  break;
     }
+  }
+}
+
+int main(int argc, const char * argv[]) {
+  rpn();
+
+  return 0;
 }
